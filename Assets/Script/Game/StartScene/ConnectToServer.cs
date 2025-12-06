@@ -55,8 +55,22 @@ public class ConnectToServer : NetworkBehaviour
 
     private void OnPlayerNameChanged(FixedString128Bytes previousName, FixedString128Bytes currentName)
     {
-        var name = currentName.ToString();
-        if (!string.IsNullOrWhiteSpace(name)) gameObject.name = name;
+        try
+        {
+            var name = currentName.ToString();
+            if (!string.IsNullOrWhiteSpace(name)) gameObject.name = name;
+
+            // If GameObject has PlayerData, update field
+            PlayerData playerData = GetComponent<PlayerData>();
+
+            if (!playerData) return;
+            playerData.SetName(name);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Connect To Server: Error applying name change -> {e}");
+        }
+        
     }
 
     [ServerRpc]

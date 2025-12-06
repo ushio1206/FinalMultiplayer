@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 6287234865590477482}
   - component: {fileID: -611711002681321990}
   - component: {fileID: -8991673979202858746}
+  - component: {fileID: -445608699623380585}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -160,3 +161,17 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &-445608699623380585
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1358612020351385593}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 309f395c96803a941b31268c5ee3c384, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerName: 
+  towers: []

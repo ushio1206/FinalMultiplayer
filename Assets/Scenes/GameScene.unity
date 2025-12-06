@@ -922,13 +922,13 @@ MonoBehaviour:
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
-  m_lineSpacing: 0
+  m_lineSpacing: 10
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
   m_TextWrappingMode: 1
   m_wordWrappingRatios: 0.4
-  m_overflowMode: 0
+  m_overflowMode: 4
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
@@ -948,7 +948,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 9.832748, y: 7.86615, z: 9.832733, w: 7.8661804}
+  m_margin: {x: 0, y: 0, z: -479.81177, w: -244.97939}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -1392,7 +1392,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 941879986}
   m_Direction: 2
   m_Value: 0
-  m_Size: 1
+  m_Size: 0.99999243
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -1707,7 +1707,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: 0.000858529, y: 124.99999}
+  m_AnchoredPosition: {x: 0, y: 125.00001}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1108640636
@@ -2164,6 +2164,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1316011556}
+  - component: {fileID: 1316011558}
   - component: {fileID: 1316011557}
   m_Layer: 0
   m_Name: ChatManager
@@ -2199,9 +2200,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4786751e102964549a38ef3e6483fe5c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  messageInputField: {fileID: 0}
-  chatDisplayText: {fileID: 0}
-  chatScrollRect: {fileID: 0}
+  ShowTopMostFoldoutHeaderGroup: 1
+  messageInputField: {fileID: 1900348842}
+  chatDisplayText: {fileID: 770456330}
+  chatScrollRect: {fileID: 1796218052}
+--- !u!114 &1316011558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1316011555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  GlobalObjectIdHash: 1028711729
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &1585130162
 GameObject:
   m_ObjectHideFlags: 0
