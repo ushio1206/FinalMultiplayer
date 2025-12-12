@@ -157,7 +157,7 @@ public class UIStart : MonoBehaviour
             if (string.IsNullOrWhiteSpace(lobbyNameToFind))
             {
                 Debug.LogError("UIStart: Lobby name is empty!");
-                // Mostrar mensaje en UI
+                // Show Message inUI
                 if (loadingText != null) loadingText.text = "Error: Ingresa un nombre de lobby";
                 return;
             }
@@ -173,10 +173,10 @@ public class UIStart : MonoBehaviour
 
             if (found == null)
             {
-                // ERROR: Lobby no encontrado
+                // ERROR: Lobby not found
                 Debug.LogError($"UIStart: No lobby found with name '{lobbyNameToFind}'. Available lobbies: {query.Results.Count}");
 
-                // Mostrar lobbies disponibles en el log
+                // show available lobbies in the console
                 if (query.Results.Count > 0)
                 {
                     Debug.Log("Available lobbies:");
@@ -186,13 +186,13 @@ public class UIStart : MonoBehaviour
                     }
                 }
 
-                // Actualizar UI con error
+                // Update UI
                 if (loadingText != null)
                 {
                     loadingText.text = $"Error: Lobby '{lobbyNameToFind}' no encontrado.\n{(query.Results.Count > 0 ? $"Lobbies disponibles: {query.Results.Count}" : "No hay lobbies disponibles")}";
                 }
 
-                // Volver a mostrar opciones de lobby después de 3 segundos
+                // Show option to retry after delay
                 await System.Threading.Tasks.Task.Delay(3000);
                 if (LoadingPanel != null) LoadingPanel.SetActive(false);
                 if (lobbyOptions != null) lobbyOptions.SetActive(true);

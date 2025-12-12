@@ -20,7 +20,7 @@ public class NetworkStart : NetworkBehaviour
     {
         try
         {
-            // Inicializar Unity Services si aún no se ha hecho
+            // Start Unity Services if not already initialized
             if (UnityServices.State != ServicesInitializationState.Initialized)
             {
                 await UnityServices.InitializeAsync();
