@@ -37,12 +37,12 @@ public class MenuUI : MonoBehaviour
     private void ReturnMainMenu()
     {
         print($"Player returned to the main menú");
-        // SceneManager.LoadScene(mainMenuSceneName);
+        SceneManager.LoadScene(mainMenuSceneName);
     }
 
     private void ExitGame()
     {
         print($"Player left the game");
-        // Application.Quit();
+        Application.Quit();
     }
 }

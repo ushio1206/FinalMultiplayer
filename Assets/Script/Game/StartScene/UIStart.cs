@@ -118,25 +118,46 @@ public class UIStart : MonoBehaviour
             if (LoadingPanel != null) LoadingPanel.SetActive(true);
             if (lobbyOptions != null) lobbyOptions.SetActive(false);
             returnButton.gameObject.SetActive(false);
-            if (loadingText != null) loadingText.text = "Creando lobby...";
+            if (loadingText != null) loadingText.text = "Creating Lobby...";
 
-            string name = string.IsNullOrWhiteSpace(lobbyInputField?.text) ? (lobbyName ?? $"Lobby_{UnityEngine.Random.Range(1000, 9999)}") : lobbyInputField.text.Trim();
+            string relayJoinCode = await _networkStart.StartHostWithRelayAsync();
+
+            if (string.IsNullOrEmpty(relayJoinCode))
+            {
+                Debug.LogError("UIStart: Failed to create Relay allocation");
+                if (loadingText != null) loadingText.text = "Error: Relay server cannot be created";
+                await Task.Delay(3000);
+                if (LoadingPanel != null) LoadingPanel.SetActive(false);
+                if (lobbyOptions != null) lobbyOptions.SetActive(true);
+                returnButton.gameObject.SetActive(true);
+                return;
+            }
+
+            if (loadingText != null) loadingText.text = "Creating Lobby...";
+
+            string name = string.IsNullOrWhiteSpace(lobbyInputField?.text)
+                ? (lobbyName ?? $"Lobby_{UnityEngine.Random.Range(1000, 9999)}")
+                : lobbyInputField.text.Trim();
             int maxPlayers = 2;
 
             var createOptions = new CreateLobbyOptions
             {
                 IsPrivate = false,
-                Player = GetLobbyPlayer()
+                Player = GetLobbyPlayer(),
+                Data = new Dictionary<string, DataObject>
+                {
+                    { "RelayJoinCode", new DataObject(DataObject.VisibilityOptions.Public, relayJoinCode) }
+                }
             };
 
             _hostLobby = await LobbyService.Instance.CreateLobbyAsync(name, maxPlayers, createOptions);
             Debug.Log($"UIStart: Lobby created - Id:{_hostLobby.Id} Code:{_hostLobby.LobbyCode} Name:{_hostLobby.Name}");
 
-            if (loadingText != null) loadingText.text = "Esperando jugadores...";
+            if (loadingText != null) loadingText.text = "Waiting players...";
 
             if (_networkStart != null)
             {
-                _networkStart.StartHost();
+                await _networkStart.StartHostWithRelayAsync();
             }
 
             _isHostHeartbeatRunning = true;
@@ -158,7 +179,7 @@ public class UIStart : MonoBehaviour
             {
                 Debug.LogError("UIStart: Lobby name is empty!");
                 // Show Message inUI
-                if (loadingText != null) loadingText.text = "Error: Ingresa un nombre de lobby";
+                if (loadingText != null) loadingText.text = "Error: Lobby name not valid";
                 return;
             }
 
@@ -166,46 +187,75 @@ public class UIStart : MonoBehaviour
 
             if (LoadingPanel != null) LoadingPanel.SetActive(true);
             if (lobbyOptions != null) lobbyOptions.SetActive(false);
-            if (loadingText != null) loadingText.text = $"Buscando lobby '{lobbyNameToFind}'...";
+            returnButton.gameObject.SetActive(false);
+            if (loadingText != null) loadingText.text = $"Searching lobby '{lobbyNameToFind}'...";
 
             var query = await LobbyService.Instance.QueryLobbiesAsync(new QueryLobbiesOptions { Count = 25 });
             var found = query.Results.FirstOrDefault(l => string.Equals(l.Name, lobbyNameToFind, StringComparison.OrdinalIgnoreCase));
 
             if (found == null)
             {
-                // ERROR: Lobby not found
-                Debug.LogError($"UIStart: No lobby found with name '{lobbyNameToFind}'. Available lobbies: {query.Results.Count}");
+                Debug.LogError($"UIStart: Lobby '{lobbyNameToFind}' not found. Available: {query.Results.Count}");
 
-                // show available lobbies in the console
                 if (query.Results.Count > 0)
                 {
                     Debug.Log("Available lobbies:");
                     foreach (var lobby in query.Results)
                     {
-                        Debug.Log($"  - {lobby.Name} (Id: {lobby.Id}, Players: {lobby.Players.Count}/{lobby.MaxPlayers})");
+                        Debug.Log($"  - {lobby.Name} (Players: {lobby.Players.Count}/{lobby.MaxPlayers})");
                     }
                 }
 
-                // Update UI
                 if (loadingText != null)
                 {
-                    loadingText.text = $"Error: Lobby '{lobbyNameToFind}' no encontrado.\n{(query.Results.Count > 0 ? $"Lobbies disponibles: {query.Results.Count}" : "No hay lobbies disponibles")}";
+                    loadingText.text = $"Error: Lobby '{lobbyNameToFind}' not found.\n" +
+                        $"{(query.Results.Count > 0 ? $"Available lobbies: {query.Results.Count}" : "No lobbies")}";
                 }
 
-                // Show option to retry after delay
-                await System.Threading.Tasks.Task.Delay(3000);
+                await Task.Delay(3000);
                 if (LoadingPanel != null) LoadingPanel.SetActive(false);
                 if (lobbyOptions != null) lobbyOptions.SetActive(true);
+                returnButton.gameObject.SetActive(true);
                 return;
             }
 
+            if (!found.Data.TryGetValue("RelayJoinCode", out var relayCodeData) ||
+                string.IsNullOrWhiteSpace(relayCodeData.Value))
+            {
+                Debug.LogError("UIStart: Lobby missing Relay Join Code!");
+                if (loadingText != null) loadingText.text = "Error: Lobby with Relay code not valid";
+                await Task.Delay(3000);
+                if (LoadingPanel != null) LoadingPanel.SetActive(false);
+                if (lobbyOptions != null) lobbyOptions.SetActive(true);
+                returnButton.gameObject.SetActive(true);
+                return;
+            }
+
+            string relayJoinCode = relayCodeData.Value;
+            Debug.Log($"UIStart: Found lobby '{found.Name}' with Relay code: {relayJoinCode}");
+
+            if (loadingText != null) loadingText.text = "Joining to lobby...";
+
             var joinOptions = new JoinLobbyByIdOptions { Player = GetLobbyPlayer() };
             _hostLobby = await LobbyService.Instance.JoinLobbyByIdAsync(found.Id, joinOptions);
-            Debug.Log($"UIStart: Successfully joined lobby - Id:{_hostLobby.Id} Name:{_hostLobby.Name}");
+            Debug.Log($"UIStart: Joined lobby '{_hostLobby.Name}'");
 
-            if (_networkStart != null)
+            if (loadingText != null) loadingText.text = "Conecting...";
+
+            bool connected = await _networkStart.StartClientWithRelayAsync(relayJoinCode);
+
+            if (!connected)
             {
-                _networkStart.StartClient();
+                Debug.LogError("UIStart: Failed to connect via Relay");
+                if (loadingText != null) loadingText.text = "Error: Cannot join the server";
+                await Task.Delay(3000);
+                if (LoadingPanel != null) LoadingPanel.SetActive(false);
+                if (lobbyOptions != null) lobbyOptions.SetActive(true);
+                returnButton.gameObject.SetActive(true);
+            }
+            else
+            {
+                if (loadingText != null) loadingText.text = "Conected! waiting...";
             }
         }
         catch (LobbyServiceException le)
@@ -213,6 +263,7 @@ public class UIStart : MonoBehaviour
             Debug.LogError($"UIStart: Join lobby failed -> {le}");
             if (LoadingPanel != null) LoadingPanel.SetActive(false);
             if (lobbyOptions != null) lobbyOptions.SetActive(true);
+            returnButton.gameObject.SetActive(true);
         }
     }
 

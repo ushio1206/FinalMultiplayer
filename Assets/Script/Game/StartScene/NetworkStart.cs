@@ -80,15 +80,15 @@ public class NetworkStart : NetworkBehaviour
 
         try
         {
-            // Crear Relay allocation (máx 4 jugadores por defecto)
-            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(4);
+            // Create Relay Allocation
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(2);
 
-            // Obtener Join Code
+            // Get Join Code
             RelayJoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
-            Debug.Log($"★★★ [HOST] Relay Join Code: {RelayJoinCode} ★★★");
+            Debug.Log($"Relay Join Code: {RelayJoinCode}");
 
-            // Configurar Transport con datos de Relay
+            // Setup Transport with Relay data
             _transport.SetHostRelayData(
                 allocation.RelayServer.IpV4,
                 (ushort)allocation.RelayServer.Port,
@@ -104,7 +104,7 @@ public class NetworkStart : NetworkBehaviour
                 _clientSubscribed = true;
             }
 
-            // Iniciar Host
+            // Start Host
             NetworkManager.Singleton.StartHost();
             Debug.Log("NetworkStart: Host started via Relay");
 
@@ -174,7 +174,7 @@ public class NetworkStart : NetworkBehaviour
 
         if (!NetworkManager.Singleton) return;
 
-        if (IsServer)
+        if (NetworkManager.Singleton.IsServer)
         {
             connectedPlayers.Value = NetworkManager.Singleton.ConnectedClients.Count;
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
