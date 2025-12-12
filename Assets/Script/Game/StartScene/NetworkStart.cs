@@ -1,6 +1,11 @@
-using System;
+﻿using System;
+using System.Threading.Tasks;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
+using Unity.Services.Authentication;
 using Unity.Services.Core;
+using Unity.Services.Relay;
+using Unity.Services.Relay.Models;
 using UnityEngine;
 
 public class NetworkStart : NetworkBehaviour
@@ -15,6 +20,9 @@ public class NetworkStart : NetworkBehaviour
     private int _requiredPlayers = 2;
     private bool _clientSubscribed = false;
     private string _sceneName = "GameScene";
+    private UnityTransport _transport;
+
+    public string RelayJoinCode { get; private set; }
 
     private async void Awake()
     {
@@ -26,6 +34,20 @@ public class NetworkStart : NetworkBehaviour
                 await UnityServices.InitializeAsync();
                 Debug.Log("NetworkStart: Unity Services initialized");
             }
+
+            if (!AuthenticationService.Instance.IsSignedIn)
+            {
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                Debug.Log($"NetworkStart: Signed in as {AuthenticationService.Instance.PlayerId}");
+            }
+
+            // Unity Transport setup
+            _transport = NetworkManager.Singleton?.GetComponent<UnityTransport>();
+
+            if (!_transport) 
+                Debug.LogError("NetworkStart: UnityTransport component not found on NetworkManager");
+                return;
+            
         }
         catch (Exception e)
         {
@@ -45,6 +67,104 @@ public class NetworkStart : NetworkBehaviour
         if (!IsServer)
         {
             connectedPlayers.OnValueChanged -= OnConnectedPlayersChanged;
+        }
+    }
+
+    public async Task<string> StartHostWithRelayAsync()
+    {
+        if (NetworkManager.Singleton == null || _transport == null)
+        {
+            Debug.LogError("NetworkStart: NetworkManager or Transport missing");
+            return null;
+        }
+
+        try
+        {
+            // Crear Relay allocation (máx 4 jugadores por defecto)
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(4);
+
+            // Obtener Join Code
+            RelayJoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+
+            Debug.Log($"★★★ [HOST] Relay Join Code: {RelayJoinCode} ★★★");
+
+            // Configurar Transport con datos de Relay
+            _transport.SetHostRelayData(
+                allocation.RelayServer.IpV4,
+                (ushort)allocation.RelayServer.Port,
+                allocation.AllocationIdBytes,
+                allocation.Key,
+                allocation.ConnectionData
+            );
+
+            // Suscribir eventos
+            if (!_clientSubscribed)
+            {
+                NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+                _clientSubscribed = true;
+            }
+
+            // Iniciar Host
+            NetworkManager.Singleton.StartHost();
+            Debug.Log("NetworkStart: Host started via Relay");
+
+            return RelayJoinCode;
+        }
+        catch (RelayServiceException e)
+        {
+            Debug.LogError($"NetworkStart: Relay allocation failed -> {e.Reason}: {e.Message}");
+            return null;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"NetworkStart: Unexpected error starting host -> {e}");
+            return null;
+        }
+    }
+
+    public async Task<bool> StartClientWithRelayAsync(string joinCode)
+    {
+        if (NetworkManager.Singleton == null || _transport == null)
+        {
+            Debug.LogError("NetworkStart: NetworkManager or Transport missing");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(joinCode))
+        {
+            Debug.LogError("NetworkStart: Join code is empty!");
+            return false;
+        }
+
+        try
+        {
+            Debug.Log($"Joining with Relay code: {joinCode}");
+
+            JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
+
+            _transport.SetClientRelayData(
+                allocation.RelayServer.IpV4,
+                (ushort)allocation.RelayServer.Port,
+                allocation.AllocationIdBytes,
+                allocation.Key,
+                allocation.ConnectionData,
+                allocation.HostConnectionData
+            );
+
+            NetworkManager.Singleton.StartClient();
+            Debug.Log("NetworkStart: Client started via Relay");
+
+            return true;
+        }
+        catch (RelayServiceException e)
+        {
+            Debug.LogError($"NetworkStart: Relay join failed -> {e.Reason}: {e.Message}");
+            return false;
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"NetworkStart: Unexpected error joining -> {e}");
+            return false;
         }
     }
 
