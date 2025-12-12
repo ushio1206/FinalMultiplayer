@@ -97,7 +97,7 @@ public class NetworkStart : NetworkBehaviour
                 allocation.ConnectionData
             );
 
-            // Suscribir eventos
+            // Subscribe to client connection events
             if (!_clientSubscribed)
             {
                 NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
@@ -186,36 +186,6 @@ public class NetworkStart : NetworkBehaviour
         }
     }
 
-    public void StartHost()
-    {
-        if (NetworkManager.Singleton == null)
-        {
-            Debug.LogError("NetworkStart: No NetworkManager found");
-            return;
-        }
-
-        if (!_clientSubscribed)
-        {
-            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
-            _clientSubscribed = true;
-        }
-
-        Debug.Log("NetworkStart: Starting Host...");
-        NetworkManager.Singleton.StartHost();
-    }
-
-    public void StartClient()
-    {
-        if (NetworkManager.Singleton == null)
-        {
-            Debug.LogError("NetworkStart: No NetworkManager found");
-            return;
-        }
-
-        Debug.Log("NetworkStart: Starting Client...");
-        NetworkManager.Singleton.StartClient();
-    }
-
     private void OnClientConnected(ulong clientId)
     {
         if (!NetworkManager.Singleton || !NetworkManager.Singleton.IsServer) return;
@@ -237,8 +207,10 @@ public class NetworkStart : NetworkBehaviour
         Debug.Log($"[Server] Client {clientId} disconnected. Total: {connectedPlayers.Value}");
     }
 
+    
     private void OnConnectedPlayersChanged(int previousValue, int currentValue)
     {
         Debug.Log($"[Client] Connected players: {previousValue} -> {currentValue}");
     }
+    
 }

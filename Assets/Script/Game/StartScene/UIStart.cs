@@ -79,6 +79,21 @@ public class UIStart : MonoBehaviour
         {
             Debug.LogError($"UIStart: Initialization failed -> {e}");
         }
+
+        
+    }
+
+    private void Update()
+    {
+        if (!playerInputField && !lobbyInputField) return;
+
+        bool JoinEnable = !string.IsNullOrWhiteSpace(playerInputField.text) && !string.IsNullOrWhiteSpace(lobbyInputField.text);
+
+        if (createLobbyButton != null)
+            createLobbyButton.interactable = JoinEnable;
+
+        if (joinLobbyButton != null)
+            joinLobbyButton.interactable = JoinEnable;
     }
 
     private void StartGame()
