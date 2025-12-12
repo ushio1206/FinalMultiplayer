@@ -11,7 +11,7 @@ public class NetworkStart : NetworkBehaviour
         readPerm: NetworkVariableReadPermission.Everyone
     );
 
-    
+
     private int _requiredPlayers = 2;
     private bool _clientSubscribed = false;
     private string _sceneName = "GameScene";

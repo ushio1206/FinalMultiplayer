@@ -17,7 +17,7 @@ public class UIStart : MonoBehaviour
     [SerializeField] private Button exitGameButton;
     [SerializeField] private Button creditsButton;
     [SerializeField] private Button returnButton;
-    
+
 
     [Header("Lobby Buttons")]
     [SerializeField] private Button createLobbyButton;

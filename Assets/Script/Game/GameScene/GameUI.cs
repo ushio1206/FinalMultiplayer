@@ -60,7 +60,7 @@ public class GameUI : NetworkBehaviour
             return;
 
         }
-        
+
         // Prioritize order by NetworkObjectId if exists, else by InstanceID
         var ordered = allPlayers.OrderBy(
             playerData =>
@@ -90,11 +90,11 @@ public class GameUI : NetworkBehaviour
     {
         float elapsed = 0f;
 
-        while(elapsed < timeoutSeconds)
+        while (elapsed < timeoutSeconds)
         {
             List<PlayerData> allPlayers = FindObjectsByType<PlayerData>(FindObjectsSortMode.None).ToList();
 
-            if(allPlayers.Count >= 2)
+            if (allPlayers.Count >= 2)
             {
                 RefreshPlayersAndSubscribe();
                 yield break;

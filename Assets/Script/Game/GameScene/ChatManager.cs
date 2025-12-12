@@ -59,7 +59,7 @@ public class ChatManager : NetworkBehaviour
             else
             {
                 string prefsName = PlayerPrefs.GetString("DesiredPlayerName", string.Empty);
-                if(!string.IsNullOrWhiteSpace(prefsName))
+                if (!string.IsNullOrWhiteSpace(prefsName))
                     displayName = prefsName;
                 else
                     displayName = AuthenticationService.Instance.PlayerId ?? $"Player_{Guid.NewGuid()}";
@@ -215,15 +215,15 @@ public class ChatManager : NetworkBehaviour
         }
 
         string message = messageInputField.text;
-        if(string.IsNullOrEmpty(message)) return;
-        
+        if (string.IsNullOrEmpty(message)) return;
+
         try
         {
             await SendChatMessage(message, _channelName);
             messageInputField.text = string.Empty;
             messageInputField.ActivateInputField();
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             Debug.LogError($"ChatManager: Error in SendMessageUI -> {e}");
         }
@@ -255,7 +255,7 @@ public class ChatManager : NetworkBehaviour
             {
                 PlayerData[] allPlayers = FindObjectsByType<PlayerData>(FindObjectsSortMode.None);
 
-                foreach(var player in allPlayers)
+                foreach (var player in allPlayers)
                 {
                     NetworkObject networkObject = player.GetComponent<NetworkObject>();
 
@@ -283,7 +283,7 @@ public class ChatManager : NetworkBehaviour
     private IEnumerator ScrollToBottom()
     {
         yield return new WaitForEndOfFrame();
-        if(chatScrollRect != null)
+        if (chatScrollRect != null)
             chatScrollRect.verticalNormalizedPosition = 0f;
     }
 
