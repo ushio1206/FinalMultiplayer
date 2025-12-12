@@ -26,10 +26,8 @@ public class GameUI : NetworkBehaviour
     [SerializeField] private PlayerData player2Data;
     [SerializeField] private float percentageWinner = 100f;
 
-    private void Awake()
-    {
-        
-    }
+    [SerializeField] private float _playerResolveTimeout = 5f;
+    [SerializeField] private float _playerResolveInterval = 0.25f;
 
     private void OnEnable()
     {
@@ -54,19 +52,25 @@ public class GameUI : NetworkBehaviour
         // If player1 and Player2 are assigned already, keep them, else, try to find them
         List<PlayerData> allPlayers = FindObjectsByType<PlayerData>(FindObjectsSortMode.InstanceID).ToList();
 
-        if(player1Data == null || player2Data == null)
+        if (allPlayers.Count < 2)
         {
-            // Prioritize order by NetworkObjectId if exists, else by InstanceID
-            var ordered = allPlayers.OrderBy(
-                playerData =>
-                {
-                    var netObj = playerData.GetComponent<NetworkObject>();
-                    return netObj != null ? (long)netObj.OwnerClientId : long.MaxValue;
-                }).ToList();
+            Debug.LogWarning($"GameUI: Found {allPlayers.Count} Player(s). Waiting up to {_playerResolveTimeout}s for players to spawn.");
+            StopAllCoroutines();
+            StartCoroutine(WaitForPlayersAndRefresh(_playerResolveTimeout));
+            return;
 
-            if(player1Data == null && ordered.Count > 0) player1Data = ordered[0];
-            if (player2Data == null && ordered.Count > 1) player2Data = ordered[2];
         }
+        
+        // Prioritize order by NetworkObjectId if exists, else by InstanceID
+        var ordered = allPlayers.OrderBy(
+            playerData =>
+            {
+                var netObj = playerData.GetComponent<NetworkObject>();
+                return netObj != null ? (long)netObj.OwnerClientId : long.MaxValue;
+            }).ToList();
+
+        if (player1Data == null && ordered.Count > 0) player1Data = ordered[0];
+        if (player2Data == null && ordered.Count > 1) player2Data = ordered[1];
 
         // Subscribe to NameChanges and set UI immediatelly
         if (player1Data != null) player1Data.OnNameChanged += OnPlayer1NameChanged;
@@ -79,6 +83,31 @@ public class GameUI : NetworkBehaviour
         player2Name = player2Data != null && !string.IsNullOrWhiteSpace(player2Data.playerName)
             ? player2Data.playerName : PlayerPrefs.GetString("DesiredPlayerName", "Player_2");
 
+        UpdatePlayerTexts();
+    }
+
+    private IEnumerator<YieldInstruction> WaitForPlayersAndRefresh(float timeoutSeconds)
+    {
+        float elapsed = 0f;
+
+        while(elapsed < timeoutSeconds)
+        {
+            List<PlayerData> allPlayers = FindObjectsByType<PlayerData>(FindObjectsSortMode.None).ToList();
+
+            if(allPlayers.Count >= 2)
+            {
+                RefreshPlayersAndSubscribe();
+                yield break;
+            }
+
+            yield return new WaitForSeconds(_playerResolveInterval);
+            elapsed += _playerResolveInterval;
+        }
+
+        Debug.LogWarning($"GameUI: Timeout waiting for Players.");
+
+        player1Name = PlayerPrefs.GetString("DesiredPlayerName", "Player_1");
+        player2Name = PlayerPrefs.GetString("DesiredOpponentName", "Player_2");
         UpdatePlayerTexts();
     }
 

@@ -29,39 +29,57 @@ public class ChatManager : NetworkBehaviour
         if (messageInputField != null)
             messageInputField.interactable = false;
 
-        //messageInputField.onSubmit.AddListener(OnMessageSubmit);
     }
 
     private async void Start()
     {
         try
         {
-            // Initialize services
-            await UnityServices.InitializeAsync();
-            AuthenticationService.Instance.SignedIn += OnSignedIn;
-            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            //Check if Unity Services is initialized
+            if (UnityServices.State != ServicesInitializationState.Initialized)
+            {
+                await UnityServices.InitializeAsync();
+                Debug.Log("ChatManager: Unity Services initialized");
+            }
 
+            // Verify authentication
+            if (!AuthenticationService.Instance.IsSignedIn)
+            {
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                Debug.Log($"ChatManager: Signed in as {AuthenticationService.Instance.PlayerId}");
+            }
+
+            // Resolver local PlayerData
             _playerData = await ResolveLocalPlayerDataAsync(timeoutSeconds: 5f);
 
-            // Login Vivox with name
-            string prefsName = PlayerPrefs.GetString("DesiredPlayerName", string.Empty);
-            string displayName = !string.IsNullOrEmpty(prefsName) ? _playerData.playerName : (!string.IsNullOrWhiteSpace(prefsName) ? prefsName : AuthenticationService.Instance.PlayerId ?? $"Player_{Guid.NewGuid()}");
+            string displayName = string.Empty;
+            // Check Display Name
+            if (_playerData != null && !string.IsNullOrWhiteSpace(_playerData.playerName))
+                displayName = _playerData.playerName;
+            else
+            {
+                string prefsName = PlayerPrefs.GetString("DesiredPlayerName", string.Empty);
+                if(!string.IsNullOrWhiteSpace(prefsName))
+                    displayName = prefsName;
+                else
+                    displayName = AuthenticationService.Instance.PlayerId ?? $"Player_{Guid.NewGuid()}";
+            }
+
+            Debug.Log($"ChatManager: Using display name: {displayName}");
 
             // Login to Vivox
             await LoginVivox(displayName);
 
-            // Try to join chat session with delay to ensure login is complete
-            await TryJoinChannelWithRetry(_channelName, 5, 1f);
+            // Try join Channel
+            await TryJoinChannelWithRetry(_channelName, 6, 1f);
 
-            // If joined, enable input and subscribe events
+            // Enable message input
             if (_isJoined && messageInputField != null)
             {
                 messageInputField.interactable = true;
                 messageInputField.onSubmit.AddListener(OnMessageSubmit);
+                Debug.Log("ChatManager: Chat input enabled");
             }
-
-            //await JoinChatSession();
-
         }
         catch (Exception e)
         {
@@ -69,39 +87,30 @@ public class ChatManager : NetworkBehaviour
         }
     }
 
-    private void OnSignedIn()
-    {
-        Debug.Log($"Signed In: {AuthenticationService.Instance.PlayerId}");
-    }
-
     private async Task LoginVivox(string displayName)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(displayName))
-                displayName = AuthenticationService.Instance.PlayerId ?? $"Player_{Guid.NewGuid()}";
-
-            LoginOptions loginOptions = new LoginOptions()
             {
-                DisplayName = displayName
-            };
+                displayName = AuthenticationService.Instance.PlayerId ?? $"Player_{Guid.NewGuid()}";
+                Debug.LogWarning($"ChatManager: DisplayName was empty, using fallback '{displayName}'");
+            }
 
-            // Register event before login
+            var loginOptions = new LoginOptions { DisplayName = displayName };
             await VivoxService.Instance.LoginAsync(loginOptions);
 
             VivoxService.Instance.LoggedIn += OnLogin;
             VivoxService.Instance.ChannelMessageReceived += OnMessageReceived;
 
             _isLoggedIn = VivoxService.Instance.IsLoggedIn;
-
-            Debug.Log($"ChatManager: Vivox login completed. Is logged in:{_isLoggedIn}");
+            Debug.Log($"ChatManager: Vivox login completed. IsLoggedIn={_isLoggedIn}");
         }
         catch (Exception e)
         {
-            Debug.LogError($"ChatManager: LoginVivox error -> {e}");
+            Debug.LogError($"ChatManager: Vivox login failed -> {e}");
             _isLoggedIn = false;
         }
-
     }
 
     private void OnLogin()
@@ -114,11 +123,11 @@ public class ChatManager : NetworkBehaviour
     {
         if (string.IsNullOrWhiteSpace(channelName))
         {
-            Debug.LogError("ChatManager: Channel Name is empty");
+            Debug.LogError("ChatManager: Channel name is empty, cannot join");
             return;
         }
 
-        for(int attempt = 1; attempt <= maxAttempts; attempt++)
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             if (VivoxService.Instance != null && VivoxService.Instance.IsLoggedIn)
             {
@@ -126,51 +135,49 @@ public class ChatManager : NetworkBehaviour
                 {
                     await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.TextOnly);
                     _isJoined = true;
-                    Debug.Log($"ChatManager: Joined channel {channelName} successfully on attempt {attempt}");
+                    Debug.Log($"ChatManager: Successfully joined channel '{channelName}' on attempt {attempt}");
                     return;
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"ChatManager: Failed to join channel {channelName} on attempt {attempt}. Error: {e.Message}");
+                    Debug.LogWarning($"ChatManager: Attempt {attempt}/{maxAttempts} to join channel '{channelName}' failed -> {e.Message}");
                 }
             }
             else
             {
-                Debug.LogWarning("ChatManager: VivoxService is not ready or user not logged in yet. Retrying...");
+                Debug.LogWarning($"ChatManager: VivoxService not ready (attempt {attempt}/{maxAttempts})");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
         }
 
-        Debug.LogError($"ChatManager: Failed to join channel {channelName} after {maxAttempts} attempts.");
+        Debug.LogError($"ChatManager: Failed to join channel '{channelName}' after {maxAttempts} attempts");
         _isJoined = false;
     }
 
     private async Task SendChatMessage(string message, string channelName = _channelName)
     {
-        if(!_isJoined || VivoxService.Instance == null || string.IsNullOrEmpty(message))
+        if (!_isJoined || VivoxService.Instance == null || string.IsNullOrEmpty(message))
         {
-            Debug.LogError("ChatManager: Not join to any Vivox channel or empty message");
+            Debug.LogError("ChatManager: Cannot send message - not joined to channel or message empty");
             return;
         }
 
         try
         {
-            MessageOptions messageOptions = new MessageOptions
+            var messageOptions = new MessageOptions
             {
-                Metadata = JsonUtility.ToJson(
-                    new Dictionary<string, object>()
-                    {
-                        { "PlayerID", VivoxService.Instance.SignedInPlayerId}
-                    }
-                )
+                Metadata = JsonUtility.ToJson(new Dictionary<string, object>
+                {
+                    { "PlayerID", VivoxService.Instance.SignedInPlayerId }
+                })
             };
 
             await VivoxService.Instance.SendChannelTextMessageAsync(channelName, message, messageOptions);
         }
         catch (Exception e)
         {
-            Debug.LogError($"ChatManager: Error sending message -> {e}");
+            Debug.LogError($"ChatManager: Failed to send message -> {e}");
         }
     }
 
@@ -278,5 +285,19 @@ public class ChatManager : NetworkBehaviour
         yield return new WaitForEndOfFrame();
         if(chatScrollRect != null)
             chatScrollRect.verticalNormalizedPosition = 0f;
+    }
+
+    public override void OnDestroy()
+    {
+        if (messageInputField != null)
+        {
+            messageInputField.onSubmit.RemoveListener(OnMessageSubmit);
+        }
+
+        if (VivoxService.Instance != null)
+        {
+            VivoxService.Instance.LoggedIn -= OnLogin;
+            VivoxService.Instance.ChannelMessageReceived -= OnMessageReceived;
+        }
     }
 }

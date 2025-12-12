@@ -1,5 +1,7 @@
-using UnityEngine;
+using System;
 using Unity.Netcode;
+using Unity.Services.Core;
+using UnityEngine;
 
 public class NetworkStart : NetworkBehaviour
 {
@@ -7,19 +9,35 @@ public class NetworkStart : NetworkBehaviour
         0,
         writePerm: NetworkVariableWritePermission.Server,
         readPerm: NetworkVariableReadPermission.Everyone
-        );
+    );
 
     private int _requiredPlayers = 2;
     private bool _clientSubscribed = false;
     private string _sceneName = "GameScene";
 
+    private async void Awake()
+    {
+        try
+        {
+            // Inicializar Unity Services si aún no se ha hecho
+            if (UnityServices.State != ServicesInitializationState.Initialized)
+            {
+                await UnityServices.InitializeAsync();
+                Debug.Log("NetworkStart: Unity Services initialized");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"NetworkStart: Unity Services init failed -> {e}");
+        }
+    }
+
     public override void OnDestroy()
     {
-        if (NetworkManager.Singleton != null && _clientSubscribed == true)
+        if (NetworkManager.Singleton != null && _clientSubscribed)
         {
             NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
             NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
-
             _clientSubscribed = false;
         }
 
@@ -37,25 +55,22 @@ public class NetworkStart : NetworkBehaviour
 
         if (IsServer)
         {
-            // Initialize with current count
             connectedPlayers.Value = NetworkManager.Singleton.ConnectedClients.Count;
-
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
         }
         else
         {
             connectedPlayers.OnValueChanged += OnConnectedPlayersChanged;
-            return;
         }
     }
 
     public void StartHost()
     {
-        if(NetworkManager.Singleton == null)
+        if (NetworkManager.Singleton == null)
         {
-            Debug.LogError("No NetworkManager found in the scene.");
-            return; 
+            Debug.LogError("NetworkStart: No NetworkManager found");
+            return;
         }
 
         if (!_clientSubscribed)
@@ -64,45 +79,45 @@ public class NetworkStart : NetworkBehaviour
             _clientSubscribed = true;
         }
 
-        // Only Server/Host will load the game scene
-        Debug.Log("Network: Starting Host...");
+        Debug.Log("NetworkStart: Starting Host...");
         NetworkManager.Singleton.StartHost();
     }
 
     public void StartClient()
     {
-        if(NetworkManager.Singleton == null)
+        if (NetworkManager.Singleton == null)
         {
-            Debug.LogError("No NetworkManager found in the scene.");
-            return; 
+            Debug.LogError("NetworkStart: No NetworkManager found");
+            return;
         }
 
-        Debug.Log("Network: Starting Client...");
+        Debug.Log("NetworkStart: Starting Client...");
         NetworkManager.Singleton.StartClient();
     }
 
     private void OnClientConnected(ulong clientId)
     {
-        if (!NetworkManager.Singleton) return;
-        if (!NetworkManager.Singleton.IsServer) return;
+        if (!NetworkManager.Singleton || !NetworkManager.Singleton.IsServer) return;
 
         connectedPlayers.Value = NetworkManager.Singleton.ConnectedClients.Count;
+        Debug.Log($"[Server] Client {clientId} connected. Total: {connectedPlayers.Value}");
 
         if (connectedPlayers.Value >= _requiredPlayers)
+        {
+            Debug.Log("[Server] Required players reached. Loading game scene...");
             NetworkManager.Singleton.SceneManager.LoadScene(_sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
-
-        Debug.Log($"[Server] Client connected: {clientId}");
+        }
     }
 
     private void OnClientDisconnected(ulong clientId)
     {
         if (!IsServer) return;
         connectedPlayers.Value = NetworkManager.Singleton.ConnectedClients.Count;
+        Debug.Log($"[Server] Client {clientId} disconnected. Total: {connectedPlayers.Value}");
     }
 
     private void OnConnectedPlayersChanged(int previousValue, int currentValue)
     {
-        Debug.Log($"Connected Players changed from {previousValue} to {currentValue}");
-
+        Debug.Log($"[Client] Connected players: {previousValue} -> {currentValue}");
     }
 }
